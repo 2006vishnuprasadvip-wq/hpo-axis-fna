@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HPO Axis Simulator</title>
+<style>
+:root{--bg:#fbf7f4;--card:#fff;--tx:#2a2230;--mu:#6e6577;--ac:#b4376b;--ok:#2f8f6b;--wa:#d98a1f;--bd:#e8dfe4;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1a1520;--card:#251e2d;--tx:#f1ebf3;--mu:#a99fb3;--ac:#ef7fae;--ok:#58c79d;--wa:#f0b04f;--bd:#3a3044}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.45;padding:14px;max-width:720px;margin:auto}
+h1{font-size:1.3rem;margin:4px 0}p.s{color:var(--mu);margin:0 0 12px;font-size:.9rem}
+.tabs{display:flex;gap:6px;margin-bottom:12px}
+.tabs button{flex:1;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font-weight:600;font-size:.9rem}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:12px;margin-bottom:12px}
+label{display:flex;justify-content:space-between;font-size:.9rem;font-weight:600;margin-top:8px}
+input[type=range]{width:100%;accent-color:var(--ac)}
+canvas{width:100%;height:110px;display:block}
+.g{margin:7px 0}.g div.t{display:flex;justify-content:space-between;font-size:.82rem;color:var(--mu)}
+.bar{height:12px;background:var(--bd);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--ac);transition:width .25s}
+.out{font-weight:700;font-size:1.05rem;padding:10px;border-radius:10px;text-align:center;color:#fff;transition:background .3s}
+.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{padding:8px 12px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:20px;font-size:.85rem}
+.chips button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.hide{display:none}.pearl{border-left:4px solid var(--ac);padding-left:10px;font-size:.9rem}
+.q button{display:block;width:100%;text-align:left;margin:6px 0;padding:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font-size:.9rem}
+</style></head><body>
+<h1>Hypothalamic–Pituitary–Ovarian Axis Lab</h1>
+<p class="s">Play with the axis, then break it. Built for teaching FHA and its differentials.</p>
+<div class="tabs"><button id="t1" class="on">FHA simulator</button><button id="t2">Break the axis</button><button id="t3">Quiz</button></div>
+
+<div id="p1">
+ <div class="card">
+  <label>Energy intake <span id="v1">80</span></label><input id="e" type="range" min="0" max="100" value="80">
+  <label>Exercise load <span id="v2">20</span></label><input id="x" type="range" min="0" max="100" value="20">
+  <label>Psychological stress <span id="v3">20</span></label><input id="s" type="range" min="0" max="100" value="20">
+  <div class="chips" style="margin-top:10px"><button data-p="80,20,20">Healthy</button><button data-p="25,85,60">Marathoner on a diet</button><button data-p="45,30,95">Exam stress</button></div>
+ </div>
+ <div class="card"><b style="font-size:.9rem">Kisspeptin → GnRH pulses</b><canvas id="c"></canvas><div class="s" id="pf" style="margin:4px 0 0"></div></div>
+ <div class="card" id="gauges"></div>
+ <div class="out" id="res"></div>
+ <p class="s" id="why" style="margin-top:10px"></p>
+</div>
+
+<div id="p2" class="hide">
+ <div class="chips card" id="dx"></div>
+ <div class="card" id="dg"></div>
+ <div class="card pearl" id="dd"></div>
+</div>
+
+<div id="p3" class="hide"><div class="card q" id="qz"></div></div>
+
+<script>
+const $=id=>document.getElementById(id),cl=v=>Math.max(0,Math.min(100,v));
+const tabs=["t1","t2","t3"],pans=["p1","p2","p3"];
+tabs.forEach((t,i)=>$(t).onclick=()=>{tabs.forEach((u,j)=>{$(u).classList.toggle("on",i==j);$(pans[j]).classList.toggle("hide",i!=j)})});
+function gauges(el,d){el.innerHTML=d.map(([n,v,txt])=>`<div class="g"><div class="t"><span>${n}</span><span>${txt}</span></div><div class="bar"><i style="width:${v}%"></i></div></div>`).join("")}
+let kiss=70;
+function lvl(v){return v<25?"↓ low":v<45?"↓ mildly low":v<=65?"normal":v<85?"↑ high":"↑↑ very high"}
+function sim(){
+ const E=+$("e").value,X=+$("x").value,S=+$("s").value;
+ $("v1").textContent=E;$("v2").textContent=X;$("v3").textContent=S;
+ const leptin=cl(E-0.5*X+10);kiss=cl(leptin-0.5*S+(S>50?0:0));
+ const lh=cl(kiss*.95+3),fsh=cl(22+kiss*.45),e2=kiss;
+ gauges($("gauges"),[["Leptin",leptin,lvl(leptin)],["Kisspeptin",kiss,lvl(kiss)],["LH",lh,lvl(lh)],["FSH",fsh,lvl(fsh)],["Estradiol",e2,lvl(e2)]]);
+ const r=$("res");
+ if(kiss>=55){r.textContent="Regular ovulatory cycles";r.style.background="var(--ok)"}
+ else if(kiss>=30){r.textContent="Oligomenorrhea (irregular cycles)";r.style.background="var(--wa)"}
+ else{r.textContent="Functional hypothalamic amenorrhea";r.style.background="#b3362f"}
+ $("why").textContent=kiss>=55?"Enough energy: leptin keeps kisspeptin firing, so GnRH pulses roughly hourly. LH rises with FSH and the cycle runs.":kiss>=30?"Energy deficit and stress lower leptin and raise cortisol. Kisspeptin weakens, GnRH pulses slow, and ovulation becomes unreliable.":"Low leptin plus high cortisol shuts down kisspeptin. GnRH pulses nearly stop, LH falls more than FSH, estradiol is low, and there is no withdrawal bleed after progestin. Bone loss risk rises.";
+ $("pf").textContent=kiss<8?"GnRH pulses: almost absent":"GnRH pulse interval ≈ "+Math.round(60+(100-kiss)*2.4)+" min ("+(kiss>=55?"LH-favouring":"slower, FSH-dominant")+")";
+}
+["e","x","s"].forEach(i=>$(i).oninput=sim);
+document.querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{const p=b.dataset.p.split(",");$("e").value=p[0];$("x").value=p[1];$("s").value=p[2];sim()});
+sim();
+// pulse trace
+const cv=$("c"),cx=cv.getContext("2d");let spikes=[],last=0,tprev=0;
+function draw(t){
+ const w=cv.clientWidth,h=cv.clientHeight;if(cv.width!==w*2){cv.width=w*2;cv.height=h*2}
+ cx.setTransform(2,0,0,2,0,0);cx.clearRect(0,0,w,h);
+ const iv=kiss<8?1e9:(1000+(100-kiss)*60);
+ if(t-last>iv){spikes.push(t);last=t}
+ spikes=spikes.filter(s=>t-s<6000);
+ const cs=getComputedStyle(document.documentElement);cx.strokeStyle=cs.getPropertyValue("--ac");cx.lineWidth=2;cx.beginPath();
+ for(let x=0;x<=w;x+=2){const age=(w-x)/w*6000;let y=0;spikes.forEach(s=>{const d=(t-s)-age;if(d>-100&&d<700)y+=Math.exp(-Math.pow((d-120)/150,2))});
+  const amp=(0.25+kiss/100*0.75)*(h-20);const py=h-8-Math.min(1,y)*amp;x?cx.lineTo(x,py):cx.moveTo(x,py)}
+ cx.stroke();requestAnimationFrame(draw)}
+requestAnimationFrame(draw);
+
+// differentials
+const D={
+"Normal":{g:[50,50,50,30,"—"],b:"Withdrawal bleed after progestin",d:"Intact axis, normal outflow tract."},
+"FHA":{g:[35,15,12,30,"—"],b:"No bleed after progestin (low E2)",d:"↓ Leptin and ↑ cortisol suppress kisspeptin, so GnRH pulses slow. LH falls more than FSH."},
+"Pregnancy":{g:[5,5,95,60,"hCG ↑"],b:"No bleed",d:"hCG sustains the corpus luteum. High progesterone suppresses GnRH, FSH and LH."},
+"PCOS":{g:[40,80,50,30,"Androgens ↑"],b:"Bleed after progestin (estrogen present)",d:"High LH pulse frequency, insulin resistance and androgens cause chronic anovulation with unopposed estrogen."},
+"Hyper-prolactinemia":{g:[20,20,15,95,"—"],b:"No bleed",d:"Prolactin inhibits kisspeptin neurons, so GnRH pulses fall and estradiol falls."},
+"Hypothyroid":{g:[40,40,35,55,"TSH ↑"],b:"Variable",d:"High TRH also raises prolactin. Altered SHBG and estrogen metabolism disturb the axis."},
+"POI":{g:[95,90,8,30,"—"],b:"No bleed",d:"Follicle depletion in the ovary. Low estradiol removes negative feedback, so FSH rises. This is the key contrast with FHA."},
+"Sheehan":{g:[8,8,8,5,"TSH ↓, ACTH ↓"],b:"No bleed",d:"Postpartum haemorrhage causes pituitary infarction. Lactation fails, menses do not return, then thyroid and adrenal failure follow. Give steroids before levothyroxine."},
+"Asherman":{g:[50,50,50,30,"—"],b:"No bleed even after estrogen + progestin",d:"Hormones are normal but intrauterine scarring leaves no endometrium to shed (outflow problem)."}};
+const dx=$("dx");
+Object.keys(D).forEach((k,i)=>{const b=document.createElement("button");b.textContent=k;b.onclick=()=>{dx.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");const o=D[k],g=o.g;
+ gauges($("dg"),[["FSH",g[0],lvl(g[0])],["LH",g[1],lvl(g[1])],["Estradiol",g[2],lvl(g[2])],["Prolactin",g[3],lvl(g[3])]]);
+ $("dg").innerHTML+=`<div class="s" style="margin:8px 0 0"><b>Other:</b> ${g[4]}<br><b>Progestin challenge:</b> ${o.b}</div>`;$("dd").textContent=o.d};dx.appendChild(b);if(!i)b.click()});
+
+// quiz
+const Q=[["Low FSH, low LH, low estradiol, normal prolactin and TSH, a thin athlete.","FHA"],["High FSH, low estradiol at age 28.","POI"],["No lactation after a severe postpartum haemorrhage.","Sheehan"],["Normal hormones, but no bleed even after estrogen + progestin, after a D&C.","Asherman"],["High LH, high androgens, bleeds after progestin.","PCOS"],["Galactorrhoea with low LH and FSH.","Hyper-prolactinemia"]];
+let qi=0,sc=0;
+function qn(){const q=$("qz");if(qi>=Q.length){q.innerHTML=`<b>Score: ${sc}/${Q.length}</b><br><button onclick="qi=0;sc=0;qn()">Play again</button>`;return}
+ const opts=Object.keys(D).filter(k=>k!="Normal"&&k!="Pregnancy"&&k!="Hypothyroid");
+ q.innerHTML=`<b>Case ${qi+1}/${Q.length}</b><p>${Q[qi][0]}</p>`+opts.map(o=>`<button>${o}</button>`).join("")+`<p class="s" id="fb"></p>`;
+ q.querySelectorAll("button").forEach(b=>b.onclick=()=>{const ok=b.textContent==Q[qi][1];if(ok)sc++;$("fb").textContent=(ok?"Correct. ":"Not quite. Answer: "+Q[qi][1]+". ")+D[Q[qi][1]].d;q.querySelectorAll("button").forEach(x=>x.disabled=true);const n=document.createElement("button");n.textContent="Next →";n.onclick=()=>{qi++;qn()};q.appendChild(n)})}
+qn();
+</script></body></html>
